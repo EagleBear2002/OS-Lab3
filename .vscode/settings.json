@@ -1,0 +1,13 @@
+{
+    "files.associations": {
+        "*.s": "platformio-debug.asm",
+        "*.cjson": "jsonc",
+        "*.wxss": "css",
+        "*.wxs": "javascript",
+        "cstdarg": "c",
+        "cstdio": "c",
+        "cstdlib": "c",
+        "cwchar": "c",
+        "cwctype": "c"
+    }
+}
