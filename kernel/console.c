@@ -36,12 +36,12 @@ struct LF_Node {
 };
 
 PRIVATE int LF_top;
-PRIVATE struct LF_Node LF_array[SCREEN_SIZE / SCREEN_WIDTH];
+PRIVATE struct LF_Node LF_stack[SCREEN_SIZE / SCREEN_WIDTH];
 
 PRIVATE int operation_top;
 PRIVATE char op_stack[SCREEN_SIZE]; // 操作栈
 
-PRIVATE int is_tab(unsigned int cur) { // 连续四个符号
+PRIVATE int is_tab(unsigned int cur) { // 连续四个字符
 	u8 *start = (u8 * )(V_MEM_BASE + cur * 2);
 	return start[0] == TAB_CHAR && start[2] == TAB_CHAR && start[4] == TAB_CHAR && start[6] == TAB_CHAR;
 }
@@ -70,13 +70,13 @@ PRIVATE void turn_red(u8 *start, int len) {
 }
 
 PUBLIC void search(CONSOLE *p_con, char *text, int len) {
-	int t;
 	for (unsigned int i = p_con->original_addr; i < p_con->cursor - len; i++) {
 		u8 *start = (u8 * )(V_MEM_BASE + i * 2) + 1;
-		if (*start == RED_CHAR_COLOR) break; // 遇到了被搜索过文字
-		if (t = matched(i, text, len)) {
-			turn_red(start, t);
-			i += t - 1;
+//		if (*start == RED_CHAR_COLOR) break; // 遇到了被搜索过文字
+		int matched_len = matched(i, text, len);
+		if (matched_len) {
+			turn_red(start, matched_len);
+//			i += t - 1;
 		}
 	}
 }
@@ -122,10 +122,9 @@ PUBLIC void init_screen(TTY *p_tty) {
 	clean_screen(p_tty->p_console); // TODO: 清除先前的输出信息
 }
 
-// clean and reset, maybe the name "refresh" is more suitable
 PUBLIC void clean_screen(CONSOLE *p_con) { // TODO
 	u8 *p_vmem = (u8 * )(V_MEM_BASE);
-	for (int i = p_con->original_addr; i < p_con->cursor; i++) {
+	for (int i = p_con->original_addr; i < p_con->cursor; ++i) {
 		*p_vmem++ = ' ';
 		*p_vmem++ = DEFAULT_CHAR_COLOR;
 	}
@@ -148,14 +147,13 @@ PUBLIC int is_current_console(CONSOLE *p_con) {
  *======================================================================*/
 PUBLIC void out_char(CONSOLE *p_con, char ch) {
 	u8 *p_vmem = (u8 * )(V_MEM_BASE + p_con->cursor * 2);
-	u8 color = DEFAULT_CHAR_COLOR; // TODO: 默认黑底白字
 	switch (ch) {
 		case '\n': {
 			if (p_con->cursor < p_con->original_addr + p_con->v_mem_limit - SCREEN_WIDTH) {
-				LF_array[++LF_top].prev = p_con->cursor; // TODO: 记录换行开始位置
+				LF_stack[++LF_top].prev = p_con->cursor; // TODO: 记录换行开始位置
 				p_con->cursor = p_con->original_addr +
 				                SCREEN_WIDTH * ((p_con->cursor - p_con->original_addr) / SCREEN_WIDTH + 1);
-				LF_array[LF_top].post = p_con->cursor; // TODO: 记录换行结束位置
+				LF_stack[LF_top].post = p_con->cursor; // TODO: 记录换行结束位置
 				if (!p_con->rolling) {
 					op_stack[++operation_top] = '\b';
 				}
@@ -172,9 +170,9 @@ PUBLIC void out_char(CONSOLE *p_con, char ch) {
 						*(p_vmem - 2 * i) = ' ';
 						*(p_vmem - (2 * i) + 1) = DEFAULT_CHAR_COLOR;
 					}
-				} else if (p_con->cursor == LF_array[LF_top].post) { // 退格 LF
+				} else if (p_con->cursor == LF_stack[LF_top].post) { // 退格 LF
 					ch = '\n';
-					p_con->cursor = LF_array[LF_top].prev;
+					p_con->cursor = LF_stack[LF_top].prev;
 					LF_top--;
 				} else { // 退格其他字符
 					p_con->cursor--;
@@ -191,7 +189,7 @@ PUBLIC void out_char(CONSOLE *p_con, char ch) {
 		case '\t': { // TODO: Tab，输入四个空格，保存加入四个空格后的 p_con->cursor 的值
 			if (p_con->cursor < p_con->original_addr + p_con->v_mem_limit - TAB_LEN) {
 				for (int i = 0; i < TAB_LEN; i++) {
-					*p_vmem++ = TAB_CHAR;
+					*p_vmem++ = TAB_CHAR; // 使用 TAB_CHAR 而非 ' ' 以区分 '\t' 和 ' '
 					*p_vmem++ = DEFAULT_CHAR_COLOR;
 					p_con->cursor++;
 				}
@@ -202,6 +200,7 @@ PUBLIC void out_char(CONSOLE *p_con, char ch) {
 			break;
 		}
 		default: {
+			u8 color = DEFAULT_CHAR_COLOR; // TODO: 默认黑底白字
 			if (p_con->searchMode) { // TODO: 如果是查找模式，字体颜色要变红
 				color = RED_CHAR_COLOR;
 			}
