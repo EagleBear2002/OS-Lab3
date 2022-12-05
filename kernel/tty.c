@@ -101,7 +101,10 @@ PUBLIC void in_process(TTY *p_tty, u32 key) {
 			if ((key & FLAG_CTRL_L) || (key & FLAG_CTRL_R)) { // Ctrl
 				output[0] = key;
 				if (output[0] == 'z' || output[0] == 'Z') { // Ctrl + Z
-					rollback(p_con); // 单步撤销
+					int backspaced = rollback(p_con); // 单步撤销
+					if (p_con->searchMode) {
+						key_len += backspaced;
+					}
 				}
 			} else {
 				put_key(p_tty, key);

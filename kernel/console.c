@@ -183,6 +183,9 @@ PUBLIC void out_char(CONSOLE *p_con, char ch) {
 				if (!p_con->rolling) {
 					op_stack[++operation_top] = ch;
 				}
+				if (p_con->searchMode) {
+
+				}
 			}
 			break;
 		}
@@ -223,12 +226,16 @@ PUBLIC void out_char(CONSOLE *p_con, char ch) {
 	flush(p_con);
 }
 
-PUBLIC void rollback(CONSOLE *p_con) { // TODO: 先前已经将字符存入栈，所以这里直接调用 outchar 即可
+PUBLIC int rollback(CONSOLE *p_con) { // TODO: 先前已经将字符存入栈，所以这里直接调用 outchar 即可
 	p_con->rolling = 1;
+	int ret = 1; //
 	if (operation_top >= 0) {
+		if (op_stack[operation_top] == '\b')
+			ret = -1; // 撤销后删除了字符
 		out_char(p_con, op_stack[operation_top--]);
 	}
 	p_con->rolling = 0;
+	return ret;
 }
 
 /*======================================================================*
